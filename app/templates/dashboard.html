@@ -1,0 +1,401 @@
+{% extends "base.html" %}
+
+{% block title %}
+Dashboard
+{% endblock %}
+
+{% block content %}
+
+<div class="row">
+
+    <!-- Left Panel -->
+    <div class="col-lg-4">
+
+        <div class="card shadow h-100">
+
+            <div class="card-header d-flex justify-content-between align-items-center">
+
+                <h5 class="mb-0">
+                    Lecture Transcript
+                </h5>
+
+                <button
+                        class="btn btn-outline-primary btn-sm"
+                        data-bs-toggle="modal"
+                        data-bs-target="#uploadModal">
+
+                    <i class="bi bi-plus-lg"></i> Upload
+
+                </button>
+
+            </div>
+
+            <div class="card-body">
+
+                <textarea
+                        class="form-control"
+                        id="transcript"
+                        rows="6"
+                        placeholder="Paste your lecture transcript here..."></textarea>
+
+                <div class="d-grid mt-3">
+
+                    <button
+                            id="generateBtn"
+                            class="btn btn-primary w-100">
+
+                        <span
+                                id="generateText">
+
+                            Generate Notes
+
+                        </span>
+
+                        <span
+                                id="loadingSpinner"
+                                class="spinner-border spinner-border-sm d-none">
+                        </span>
+
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- Right Panel -->
+
+    <div class="col-lg-8">
+
+        <div class="card shadow h-100">
+
+            <div class="card-header d-flex justify-content-between align-items-center">
+
+                <h5 class="mb-0">
+
+                    AI Generated Notes
+
+                </h5>
+
+                <div>
+
+                    <button
+                            id="copyBtn"
+                            class="btn btn-outline-secondary btn-sm">
+
+                        <i class="bi bi-clipboard"></i> Copy
+
+                    </button>
+
+
+                    <button
+                            id="pdfBtn"
+                            class="btn btn-success btn-sm">
+
+                        <i class="bi bi-file-earmark-pdf"></i> Download PDF
+
+                    </button>
+
+                </div>
+
+            </div>
+
+            <div
+                    class="card-body"
+                    style="min-height:650px;overflow-y:auto;">
+
+                <div id="notes">
+
+                    <div class="text-center text-muted mt-5">
+
+                        <h5>
+
+                            Notes will appear here
+
+                        </h5>
+
+                        <p>
+
+                            Paste or upload a transcript and click
+                            <strong>Generate Notes</strong>.
+
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- Upload Modal -->
+
+<div class="modal fade"
+     id="uploadModal"
+     tabindex="-1">
+
+    <div class="modal-dialog">
+
+        <div class="modal-content">
+
+            <div class="modal-header">
+
+                <h5 class="modal-title">
+                    Upload Transcript
+                </h5>
+
+                <button
+                        class="btn-close"
+                        data-bs-dismiss="modal">
+                </button>
+
+            </div>
+
+            <div class="modal-body">
+
+                <div
+                        id="uploadError"
+                        class="alert alert-danger d-none">
+                </div>
+
+                <input
+                        type="file"
+                        id="transcriptFile"
+                        class="form-control"
+                        accept=".txt,.pdf,.docx">
+
+                <small class="text-muted">
+
+                    Supported files:
+                    TXT, PDF, DOCX
+
+                </small>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+
+    document
+    .getElementById("transcriptFile")
+    .addEventListener("change", async function () {
+
+        const file = this.files[0];
+
+        if (!file)
+            return;
+
+
+        const formData = new FormData();
+
+        formData.append("file", file);
+
+
+        const response = await fetch(
+            "/transcript/upload",
+            {
+                method: "POST",
+                body: formData
+            }
+        );
+
+
+        const result = await response.json();
+
+
+        if (!result.success) {
+
+            const error =
+                document.getElementById(
+                    "uploadError"
+                );
+
+            error.classList.remove("d-none");
+            error.innerText = result.message;
+
+            return;
+        }
+
+
+        document.getElementById(
+            "transcript"
+        ).value = result.transcript;
+
+
+        bootstrap.Modal.getInstance(
+            document.getElementById(
+                "uploadModal"
+            )
+        ).hide();
+
+    });
+
+document
+.getElementById("generateBtn")
+.addEventListener("click", async function () {
+
+    const transcript =
+        document.getElementById(
+            "transcript"
+        ).value.trim();
+
+
+    if (!transcript) {
+
+        alert(
+            "Please paste or upload a transcript."
+        );
+
+        return;
+    }
+
+
+    document
+    .getElementById("generateText")
+    .classList.add("d-none");
+
+    document
+    .getElementById("loadingSpinner")
+    .classList.remove("d-none");
+
+
+    const response = await fetch(
+        "/transcript/notes/generate",
+        {
+            method: "POST",
+
+            headers: {
+                "Content-Type":
+                "application/json"
+            },
+
+            body: JSON.stringify({
+                transcript: transcript
+            })
+
+        }
+    );
+
+
+    const result =
+        await response.json();
+
+
+    document
+    .getElementById("generateText")
+    .classList.remove("d-none");
+
+    document
+    .getElementById("loadingSpinner")
+    .classList.add("d-none");
+
+
+    if (!result.success) {
+
+        alert(result.message);
+
+        return;
+
+    }
+
+
+    document
+    .getElementById("notes")
+    .innerHTML =marked.parse(result.notes);
+
+});
+    document
+.getElementById("pdfBtn")
+.addEventListener("click", async function(){
+
+
+    const notes =
+    document.getElementById("notes").innerText;
+
+
+    const response =
+    await fetch(
+        "/transcript/download/pdf",
+        {
+            method:"POST",
+
+            headers:{
+                "Content-Type":"application/json"
+            },
+
+            body:JSON.stringify({
+                notes:notes
+            })
+        }
+    );
+
+
+    const blob =
+    await response.blob();
+
+
+    const url =
+    window.URL.createObjectURL(blob);
+
+
+    const a =
+    document.createElement("a");
+
+
+    a.href=url;
+
+    a.download="AI_Lecture_Notes.pdf";
+
+    a.click();
+
+
+});
+    document
+.getElementById("copyBtn")
+.addEventListener("click", async function () {
+
+    const notes =
+        document.getElementById("notes").innerText;
+
+
+    if (!notes.trim()) {
+
+        alert("No notes available to copy.");
+
+        return;
+    }
+
+
+    await navigator.clipboard.writeText(notes);
+
+
+    this.innerHTML =
+        '<i class="bi bi-check"></i> Copied';
+
+
+    setTimeout(() => {
+
+        this.innerHTML =
+            '<i class="bi bi-clipboard"></i> Copy';
+
+    }, 2000);
+
+});
+
+</script>
+{% endblock %}
