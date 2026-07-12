@@ -24,3 +24,7 @@ reportlab
 
 python-docx
 pypdf
+markdown
+beautifulsoup4
+reportlab
+pygments
